@@ -66,7 +66,6 @@ async def handle_alias(message: types.Message, state: FSMContext):
 
 @dp.message_handler(content_types=ContentType.TEXT)
 async def handle_message(message: types.Message):
-    logging.warning(message.text)
     aliases = re.findall(r":[\w\s]+:", message.text)
     for sticker_alias in aliases:
         db_cursor.execute(SELECT_ALIAS_QUERY,
