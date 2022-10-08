@@ -24,7 +24,9 @@ bot = Bot(token=API_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot=bot, storage=storage)
 
-connection = psycopg2.connect(f"host={DB_HOST} dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}")
+connection = psycopg2.connect(
+    f"host={DB_HOST} dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}"
+)
 connection.autocommit = True
 db_cursor = connection.cursor()
 
@@ -55,15 +57,19 @@ async def handle_alias(message: types.Message, state: FSMContext):
         sticker_id = state_data.get("sticker_id")
         db_cursor.execute(INSERT_ALIAS_QUERY, (message.chat.id, sticker_id, sticker_alias))
     await state.finish()
-    await message.reply(f"The sticker was named, you can now use it with the following command - {sticker_alias}")
+    await message.reply(f"""
+        The sticker was named successfully, 
+        You can now use it with the following command - {sticker_alias}
+    """)
 
 
-@dp.message_handler()
+@dp.message_handler(content_types=ContentType.TEXT)
 async def handle_message(message: types.Message):
     logging.warning(message.text)
     aliases = re.findall(r":[\w\s]+:", message.text)
     for sticker_alias in aliases:
-        db_cursor.execute(SELECT_ALIAS_QUERY, (sticker_alias, message.chat.id))
+        db_cursor.execute(SELECT_ALIAS_QUERY,
+                          (sticker_alias, message.chat.id))
         (sticker_id,) = db_cursor.fetchone()
         if sticker_id:
             await message.answer_sticker(sticker_id)
