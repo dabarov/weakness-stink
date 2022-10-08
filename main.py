@@ -55,10 +55,11 @@ async def handle_alias(message: types.Message, state: FSMContext):
     sticker_alias = f":{message.text}:"
     async with state.proxy() as state_data:
         sticker_id = state_data.get("sticker_id")
-        db_cursor.execute(INSERT_ALIAS_QUERY, (message.chat.id, sticker_id, sticker_alias))
+        db_cursor.execute(INSERT_ALIAS_QUERY,
+                          (message.chat.id, sticker_id, sticker_alias))
     await state.finish()
     await message.reply(f"""
-        The sticker was named successfully, 
+        The sticker was named successfully,
         You can now use it with the following command - {sticker_alias}
     """)
 
