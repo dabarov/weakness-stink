@@ -9,6 +9,8 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types.message import ContentType
 
+from constants import STICKER_ID_FIELD, MESSAGE_SEND_ALIAS, MESSAGE_SEND_STICKER, \
+    MESSAGE_ALIAS_HAS_ASTERISK, MESSAGE_ALIAS_TOO_LONG, MESSAGE_SUCCESS, ALIAS_REGEX
 from query import SELECT_ALIAS_QUERY, INSERT_ALIAS_QUERY
 
 logging.basicConfig(level=logging.INFO)
@@ -39,34 +41,37 @@ class Form(StatesGroup):
 @dp.message_handler(commands="sticker")
 async def handle_start(message: types.Message):
     await Form.sticker.set()
-    await message.answer("Send a sticker you want to name")
+    await message.answer(MESSAGE_SEND_STICKER)
 
 
 @dp.message_handler(state=Form.sticker, content_types=ContentType.STICKER)
 async def handle_sticker(message: types.Message, state: FSMContext):
     await Form.next()
     async with state.proxy() as state_data:
-        state_data["sticker_id"] = message.sticker.file_id
-    await message.answer("Send an alias for the sticker")
+        state_data[STICKER_ID_FIELD] = message.sticker.file_id
+    await message.answer(MESSAGE_SEND_ALIAS)
 
 
 @dp.message_handler(state=Form.alias, content_types=ContentType.TEXT)
 async def handle_alias(message: types.Message, state: FSMContext):
-    sticker_alias = f":{message.text}:"
+    if "*" in message.text:
+        await message.reply(MESSAGE_ALIAS_HAS_ASTERISK)
+        return
+    if len(message.text) > 20:
+        await message.reply(MESSAGE_ALIAS_TOO_LONG)
+    sticker_alias = f"*{message.text}*"
     async with state.proxy() as state_data:
-        sticker_id = state_data.get("sticker_id")
+        sticker_id = state_data.get(STICKER_ID_FIELD)
         db_cursor.execute(INSERT_ALIAS_QUERY,
                           (message.chat.id, sticker_id, sticker_alias))
     await state.finish()
-    await message.reply(f"""
-        The sticker was named successfully,
-        You can now use it with the following command - {sticker_alias}
-    """)
+    await message.reply(f"""{MESSAGE_SUCCESS}
+    {sticker_alias}""")
 
 
 @dp.message_handler(content_types=ContentType.TEXT)
 async def handle_message(message: types.Message):
-    aliases = re.findall(r":[\w\s]+:", message.text)
+    aliases = re.findall(ALIAS_REGEX, message.text)
     for sticker_alias in aliases:
         db_cursor.execute(SELECT_ALIAS_QUERY,
                           (sticker_alias, message.chat.id))
