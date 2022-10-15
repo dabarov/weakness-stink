@@ -11,7 +11,7 @@ from aiogram.types.message import ContentType
 
 from constants import STICKER_ID_FIELD, MESSAGE_SEND_ALIAS, MESSAGE_SEND_STICKER, \
     MESSAGE_ALIAS_HAS_ASTERISK, MESSAGE_ALIAS_TOO_LONG, MESSAGE_SUCCESS, ALIAS_REGEX
-from query import SELECT_ALIAS_QUERY, INSERT_ALIAS_QUERY
+from query import SELECT_ALIASES_FOR_CHAT_QUERY, SELECT_STICKER_QUERY, INSERT_ALIAS_QUERY
 
 logging.basicConfig(level=logging.INFO)
 
@@ -39,9 +39,18 @@ class Form(StatesGroup):
 
 
 @dp.message_handler(commands="sticker")
-async def handle_start(message: types.Message):
+async def handle_sticker_command(message: types.Message):
     await Form.sticker.set()
     await message.answer(MESSAGE_SEND_STICKER)
+
+
+@dp.message_handler(commands="aliases")
+async def handle_aliases_command(message: types.Message):
+    db_cursor.execute(SELECT_ALIASES_FOR_CHAT_QUERY, (message.chat.id,))
+    alias_rows = db_cursor.fetchall()
+    aliases = [alias_row[0] for alias_row in alias_rows]
+    available_aliases = ", ".join(aliases)
+    await message.answer(f"Available aliases: {available_aliases}")
 
 
 @dp.message_handler(state=Form.sticker, content_types=ContentType.STICKER)
@@ -65,15 +74,14 @@ async def handle_alias(message: types.Message, state: FSMContext):
         db_cursor.execute(INSERT_ALIAS_QUERY,
                           (message.chat.id, sticker_id, sticker_alias))
     await state.finish()
-    await message.reply(f"""{MESSAGE_SUCCESS}
-    {sticker_alias}""")
+    await message.reply(f"""{MESSAGE_SUCCESS}{sticker_alias}""")
 
 
 @dp.message_handler(content_types=ContentType.TEXT)
 async def handle_message(message: types.Message):
     aliases = re.findall(ALIAS_REGEX, message.text)
     for sticker_alias in aliases:
-        db_cursor.execute(SELECT_ALIAS_QUERY,
+        db_cursor.execute(SELECT_STICKER_QUERY,
                           (sticker_alias, message.chat.id))
         (sticker_id,) = db_cursor.fetchone()
         if sticker_id:
