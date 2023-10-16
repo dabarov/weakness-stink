@@ -79,7 +79,12 @@ async def handle_message(message: types.Message):
     aliases = re.findall(ALIAS_REGEX, message.text)
     for sticker_alias in aliases:
         db_cursor.execute(SELECT_STICKER_QUERY, (sticker_alias, message.chat.id))
-        (sticker_id,) = db_cursor.fetchone()
+        try:
+            (sticker_id,) = db_cursor.fetchone()
+        except:
+            logging.info(
+                f"Sticker: {sticker_alias} not found for chat id: {message.chat.id}"
+            )
         if sticker_id:
             await message.answer_sticker(sticker_id)
 
