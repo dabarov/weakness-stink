@@ -1,36 +1,30 @@
 import logging
 import os
 import re
+import sqlite3
 
-import psycopg2
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types.message import ContentType
 
-from constants import STICKER_ID_FIELD, MESSAGE_SEND_ALIAS, MESSAGE_SEND_STICKER, \
-    MESSAGE_ALIAS_HAS_ASTERISK, MESSAGE_ALIAS_TOO_LONG, MESSAGE_SUCCESS, ALIAS_REGEX
-from query import SELECT_ALIASES_FOR_CHAT_QUERY, SELECT_STICKER_QUERY, \
-    INSERT_ALIAS_QUERY
+from constants import (ALIAS_REGEX, MESSAGE_ALIAS_HAS_ASTERISK,
+                       MESSAGE_ALIAS_TOO_LONG, MESSAGE_SEND_ALIAS,
+                       MESSAGE_SEND_STICKER, MESSAGE_SUCCESS, STICKER_ID_FIELD)
+from query import (INSERT_ALIAS_QUERY, SELECT_ALIASES_FOR_CHAT_QUERY,
+                   SELECT_STICKER_QUERY)
 
 logging.basicConfig(level=logging.INFO)
 
 API_TOKEN = os.environ.get("API_TOKEN")
-DB_HOST = os.environ.get("POSTGRES_HOST")
-DB_NAME = os.environ.get("POSTGRES_DB")
-DB_USER = os.environ.get("POSTGRES_USER")
-DB_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
 
 bot = Bot(token=API_TOKEN)
 
 storage = MemoryStorage()
 dp = Dispatcher(bot=bot, storage=storage)
 
-connection = psycopg2.connect(
-    f"host={DB_HOST} dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}"
-)
-connection.autocommit = True
+connection = sqlite3.connect("db.sql")
 db_cursor = connection.cursor()
 
 
@@ -72,8 +66,10 @@ async def handle_alias(message: types.Message, state: FSMContext):
     sticker_alias = f"*{message.text}*"
     async with state.proxy() as state_data:
         sticker_id = state_data.get(STICKER_ID_FIELD)
-        db_cursor.execute(INSERT_ALIAS_QUERY,
-                          (message.chat.id, sticker_id, sticker_alias))
+        db_cursor.execute(
+            INSERT_ALIAS_QUERY, (message.chat.id, sticker_id, sticker_alias)
+        )
+        connection.commit()
     await state.finish()
     await message.reply(f"""{MESSAGE_SUCCESS}{sticker_alias}""")
 
@@ -82,8 +78,7 @@ async def handle_alias(message: types.Message, state: FSMContext):
 async def handle_message(message: types.Message):
     aliases = re.findall(ALIAS_REGEX, message.text)
     for sticker_alias in aliases:
-        db_cursor.execute(SELECT_STICKER_QUERY,
-                          (sticker_alias, message.chat.id))
+        db_cursor.execute(SELECT_STICKER_QUERY, (sticker_alias, message.chat.id))
         (sticker_id,) = db_cursor.fetchone()
         if sticker_id:
             await message.answer_sticker(sticker_id)
