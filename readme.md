@@ -1,4 +1,4 @@
-# weakness-stink 🤢
+# weakness-stink 😎
 
 Made this bot for me and my friends. Feels free to use (star and fork as well 😁). Everything is easy to setup.
 
