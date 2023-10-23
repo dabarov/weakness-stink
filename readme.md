@@ -25,7 +25,7 @@ pip install -r requirements.txt
 Just run:
 
 ```bash
-python init_db.sql
+python init_db.py
 ```
 
 This will create db.sql file
